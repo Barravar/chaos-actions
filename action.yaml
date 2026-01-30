@@ -1,0 +1,36 @@
+---
+name: "Litmus Chaos Actions"
+description: "A collection of Litmus Chaos Actions for inflicting chaos on Kubernetes resources."
+inputs:
+  # Litmus Connection Inputs
+  LITMUS_URL:
+    description: "The URL of the Litmus ChaosCenter."
+    required: true
+  LITMUS_USERNAME:
+    description: "The username for authenticating with Litmus."
+    required: true
+  LITMUS_PASSWORD:
+    description: "The password for authenticating with Litmus."
+    required: true
+  LITMUS_ENVIRONMENT:
+    description: "The Litmus Environment name."
+    required: true
+  LITMUS_PROJECT:
+    description: "The Litmus Project name."
+    required: true
+  LITMUS_INFRA:
+    description: "The Litmus Infra Chaos name."
+    required: true
+  # Chaos Action Specific Inputs
+  EXPERIMENT_MANIFEST:
+    description: "The full YAML content or the path to the chaos experiment to be run."
+    required: false
+    default: ""
+  EXPERIMENT_NAME:
+    description: "The name of an existing chaos experiment to run."
+    required: false
+    default: ""
+
+runs:
+  using: docker
+  image: Dockerfile
