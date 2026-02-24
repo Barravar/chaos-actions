@@ -43,18 +43,14 @@ class SaveChaosExperimentRequest:
   Represents a request to save a Litmus Chaos experiment.
   
   Attributes:
-    id: Experiment ID
+    id: Experiment ID (auto-generated on client side)
     name: Experiment name
     description: Experiment description
-    manifest: YAML manifest as string
+    manifest: YAML manifest as compact JSON string
     infraID: Infrastructure ID
-    type: Type of experiment
-    tags: List of tags for categorization
   """
   id: ExperimentID
   name: ExperimentName
   description: ExperimentDescription
   manifest: ExperimentManifest
   infraID: InfraID
-  type: ExperimentType = "All"
-  tags: LitmusTags = field(default_factory=list)

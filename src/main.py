@@ -75,7 +75,10 @@ def get_project_id(client: LitmusClient, project_name: str) -> str:
     logger.debug(f"Project {project_name} has ID {project_info.get('projectID')}")
     return project_info.get("projectID")
   
-  except (KeyError, AttributeError, TypeError) as e:
+  except KeyError as e:
+    logger.error(f"Missing required key in projects response: {e}")
+    raise LitmusRestError(f"Invalid response structure: missing key {e}") from e
+  except (AttributeError, TypeError) as e:
     logger.error(f"Error retrieving projects: {e}")
     raise LitmusRestError(f"Error retrieving projects: {e}") from e
 
@@ -125,7 +128,10 @@ def get_environment_id(client: LitmusClient, environment_name: str, project_id: 
     logger.debug(f"Environment {environment_name} has ID {env_id}")
     return env_id
   
-  except (KeyError, AttributeError, TypeError) as e:
+  except KeyError as e:
+    logger.error(f"Missing required key in environments response: {e}")
+    raise LitmusGraphQLError(f"Invalid response structure: missing key {e}") from e
+  except (AttributeError, TypeError) as e:
     logger.error(f"Error retrieving environmentID for {environment_name}: {e}")
     raise LitmusGraphQLError(f"Error retrieving environmentID for {environment_name}: {e}") from e
 
@@ -188,7 +194,10 @@ def get_infrastructure_id(client: LitmusClient, project_id: str, environment_id:
     logger.debug(f"Chaos Infrastructure {litmus_infra} has ID {infra_id} (active: {is_active}, confirmed: {is_confirmed})")
     return infra_id
   
-  except (KeyError, AttributeError, TypeError) as e:
+  except KeyError as e:
+    logger.error(f"Missing required key in infrastructures response: {e}")
+    raise LitmusGraphQLError(f"Invalid response structure: missing key {e}") from e
+  except (AttributeError, TypeError) as e:
     logger.error(f"Error retrieving infrastructureID for {litmus_infra}: {e}")
     raise LitmusGraphQLError(f"Error retrieving infrastructureID for {litmus_infra}: {e}") from e
 
@@ -227,11 +236,10 @@ def parse_manifest(experiment_manifest: str) -> str:
     raise ValueError(f"Invalid YAML manifest: {e}") from e
   
   # Stringify the converted value to send to Litmus
-  # Use separators=(',', ':') for compact JSON without spaces (required by Litmus API)
-  # Note: Only do single encoding here because requests.post(json=payload) will add another layer
+  # Litmus API requires compact JSON format without whitespace
   try:
     manifest_jsons = json.dumps(manifest_dict, separators=(',', ':'))
-    logger.debug(f"Converted manifest to JSON string, length: {len(manifest_jsons)}")
+    logger.debug(f"Serialized manifest to compact JSON ({len(manifest_jsons)} bytes)")
     return manifest_jsons
   except (TypeError, ValueError) as e:
     logger.error(f"Error converting manifest to JSON: {e}")
@@ -282,18 +290,15 @@ def get_chaos_experiment(client: LitmusClient, project_id: str, environment_id: 
     logger.debug(f"Experiment {experiment_name} has ID {experiment_id}")
     return experiment_id
   
-  except (KeyError, AttributeError, TypeError) as e:
+  except KeyError as e:
+    logger.error(f"Missing required key in experiments response: {e}")
+    raise LitmusGraphQLError(f"Invalid response structure: missing key {e}") from e
+  except (AttributeError, TypeError) as e:
     logger.error(f"Error retrieving experimentID for {experiment_name}: {e}")
     raise LitmusGraphQLError(f"Error retrieving experimentID for {experiment_name}: {e}") from e
 
 
-def create_chaos_experiment(
-  client: LitmusClient, 
-  project_id: str, 
-  litmus_infra_id: str, 
-  experiment_manifest: str, 
-  tags: Optional[list[str]] = None
-) -> dict:
+def create_chaos_experiment(client: LitmusClient, project_id: str, litmus_infra_id: str, experiment_manifest: str, tags: Optional[list[str]] = None) -> dict:
   """
   Create a chaos experiment workflow in Litmus.
 
@@ -315,28 +320,59 @@ def create_chaos_experiment(
     logger.error("Experiment manifest is missing or empty")
     raise ValueError("Experiment manifest is missing or empty")
   
-  # Parse and convert manifest to double-encoded JSON string for Litmus API
-  experiment_manifest = parse_manifest(experiment_manifest)
+  # First, load the manifest to extract metadata
+  # Load YAML from file or environment variable
+  if os.path.isfile(experiment_manifest):
+    try:
+      with open(experiment_manifest, 'r') as file:
+        manifest_content = file.read()
+        logger.debug(f"Read experiment manifest from file {experiment_manifest}, length: {len(manifest_content)}")
+    except Exception as e:
+      logger.error(f"Error reading experiment manifest file {experiment_manifest}: {e}")
+      raise ValueError(f"Error reading experiment manifest file {experiment_manifest}: {e}") from e
+  else:
+    manifest_content = experiment_manifest
+    logger.debug(f"Using experiment manifest from environment variable, length: {len(manifest_content)}")
+  
+  # Generate a unique experiment ID for this run (could also be generated by the API, but we need it for naming)
+  experiment_id = f"{uuid.uuid4().hex[:8]}"
 
   # Get experiment name and description from manifest
   try:
-    manifest_dict = yaml.safe_load(experiment_manifest)
-    experiment_name = manifest_dict.get("metadata", {}).get("name")
-    experiment_description = manifest_dict.get("metadata", {}).get("annotations", {}).get("description").strip()
+    manifest_dict = yaml.safe_load(manifest_content)
+    metadata = manifest_dict.get("metadata", {})
+    # Try to get 'name' first, fall back to 'generateName' if not present
+    experiment_name = f"{metadata.get('name') or metadata.get('generateName', '').rstrip('-')}-{experiment_id}"
+    experiment_description = metadata.get("annotations", {}).get("description", "").strip()
+    
+    if not experiment_name:
+      logger.error("Experiment name not found in manifest metadata")
+      raise ValueError("Experiment name not found in manifest metadata (neither 'name' nor 'generateName' present)")
+    
+    # Set the name field in metadata to match the experiment name (required by API)
+    manifest_dict["metadata"]["name"] = experiment_name
+    # Remove generateName if present to avoid conflicts
+    if "generateName" in manifest_dict["metadata"]:
+      del manifest_dict["metadata"]["generateName"]
+      
   except yaml.YAMLError as e:
     logger.error(f"Error parsing YAML manifest for experiment name and description: {e}")
     raise ValueError(f"Invalid YAML manifest: {e}") from e
   
-  # Generate a unique experiment ID
-  experiment_id = f"{uuid.uuid4().hex[:8]}"
+  # Now convert the modified manifest to JSON string for Litmus API
+  try:
+    manifest_json_str = json.dumps(manifest_dict, separators=(',', ':'))
+    logger.debug(f"Serialized manifest to compact JSON ({len(manifest_json_str)} bytes)")
+  except (TypeError, ValueError) as e:
+    logger.error(f"Error converting manifest to JSON: {e}")
+    raise ValueError(f"Error converting manifest to JSON: {e}") from e
   
   experiment_request = SaveChaosExperimentRequest(
-    description=experiment_description,
     id=experiment_id,
-    infraID=litmus_infra_id,
-    manifest=experiment_manifest,
     name=experiment_name,
-    tags=tags or []
+    description=experiment_description,
+    manifest=manifest_json_str,
+    infraID=litmus_infra_id
   )
 
   variables = {
@@ -346,15 +382,19 @@ def create_chaos_experiment(
 
   logger.info(f"Saving chaos experiment {experiment_name} in project {project_id}")
   try:
-    client._graphql_call(
+    response = client._graphql_call(
       query=LitmusGraphQLQueries.SAVE_EXPERIMENT,
       variables=variables
-    )
+    )    
     # Prepare custom data for return
+    # Somehow the API is not returning the experimentID in the response, so we will return the one we generated for naming
     experiment_data = {"experimentID": experiment_id, "experimentName": experiment_name}
     return experiment_data
     
-  except (KeyError, AttributeError, TypeError) as e:
+  except KeyError as e:
+    logger.error(f"Missing required key in save experiment response: {e}")
+    raise LitmusGraphQLError(f"Invalid response structure: missing key {e}") from e
+  except (AttributeError, TypeError) as e:
     logger.error(f"Error saving chaos experiment {experiment_name}: {e}")
     raise LitmusGraphQLError(f"Error saving chaos experiment {experiment_name}: {e}") from e
 
@@ -387,7 +427,10 @@ def run_chaos_experiment(client: LitmusClient, project_id: str, experiment_id: s
     )
     return response
   
-  except (KeyError, AttributeError, TypeError) as e:
+  except KeyError as e:
+    logger.error(f"Missing required key in run experiment response: {e}")
+    raise LitmusGraphQLError(f"Invalid response structure: missing key {e}") from e
+  except (AttributeError, TypeError) as e:
     logger.error(f"Error running chaos experiment {experiment_name}: {e}")
     raise LitmusGraphQLError(f"Error running chaos experiment {experiment_name}: {e}") from e
 
