@@ -187,12 +187,12 @@ The action is built using Python 3 and runs in a Docker container. Key component
 
 3. Set environment variables:
    ```bash
-   export LITMUS_HOST="https://chaos.example.com"
-   export LITMUS_USER="admin"
+   export LITMUS_URL="https://chaos.example.com"
+   export LITMUS_USERNAME="admin"
    export LITMUS_PASSWORD="your-password"
    export LITMUS_PROJECT="test-project"
-   export LITMUS_ENV_NAME="test-env"
-   export CHAOS_INFRA_NAME="test-infra"
+   export LITMUS_ENVIRONMENT="test-env"
+   export LITMUS_INFRA="test-infra"
    export EXPERIMENT_NAME="test-experiment"
    export LOG_LEVEL="DEBUG"
    ```

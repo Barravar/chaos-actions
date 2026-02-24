@@ -169,10 +169,13 @@ class LitmusClient:
 
     try:
       response = self.session.post(url, json=payload, timeout=self.retry_config.graphql_timeout)
+      
+      # Log response for debugging before checking status
+      self.logger.debug(f"GraphQL response status: {response.status_code}")
+      self.logger.debug(f"GraphQL response: {response.text}")
+      
       response.raise_for_status()
       response_data = response.json()
-
-      self.logger.debug(f"GraphQL response {response.text}")
 
       # Logging the full response for debugging
       self.logger.debug(f"GraphQL response data: {response_data}")
@@ -190,5 +193,11 @@ class LitmusClient:
       return response_data.get("data", {})
     
     except requests.RequestException as e:
+      # Try to log response body if available
+      try:
+        if hasattr(e, 'response') and e.response is not None:
+          self.logger.error(f"Response body: {e.response.text}")
+      except:
+        pass
       self.logger.error(f"GraphQL request to {url} failed: {e}")
       raise LitmusGraphQLError(f"GraphQL request failed: {e}") from e
