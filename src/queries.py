@@ -41,6 +41,35 @@ class LitmusGraphQLQueries:
     }
   """
 
+  # Query to list experiment runs and return their details
+  LIST_EXPERIMENT_RUN = """
+    query listExperimentRun($projectID: ID!, $request: ListExperimentRunRequest!){
+      listExperimentRun(projectID: $projectID, request: $request){
+        totalNoOfExperimentRuns
+        experimentRuns {
+          experimentRunID
+          experimentName
+        }
+      }
+    }
+  """
+
+  # Query to get the status of an experiment run by its ID
+  GET_EXPERIMENT_RUN = """
+    query getExperimentRun($projectID: ID!, $experimentRunID: ID, $notifyID: ID){
+      getExperimentRun(projectID: $projectID, experimentRunID: $experimentRunID, notifyID: $notifyID){
+        experimentRunID
+        experimentID
+        experimentName
+        phase
+        resiliencyScore
+        updatedAt
+        executionData
+        totalFaults
+      }
+    }
+  """
+
   # Mutation to save a chaos experiment
   SAVE_EXPERIMENT = """
     mutation saveChaosExperiment($projectID: ID!, $request: SaveChaosExperimentRequest!){
