@@ -149,35 +149,77 @@ Create an experiment without immediately executing it:
 ```
 chaos-actions/
 ├── action.yaml                # GitHub Action definition
+├── Dockerfile                 # Container image definition
 ├── README.md                  # This file
-└── .github/
-    └── src/
-        ├── Dockerfile         # Container image definition
-        ├── requirements.txt   # Python dependencies
-        ├── action.py          # Main script
-        ├── classes.py         # Client and configuration classes
-        ├── models.py          # Data models
-        ├── chaos_types.py     # Type definitions
-        └── serializers.py     # JSON serialization utilities
+├── requirements.txt           # Python dependencies
+├── pytest.ini                 # Pytest configuration
+├── pyproject.toml             # Python project metadata
+├── src/
+│   ├── main.py               # Main entry point and orchestration
+│   ├── client.py             # Litmus API client (REST + GraphQL)
+│   ├── config.py             # Configuration and logger setup
+│   ├── exceptions.py         # Custom exception classes
+│   ├── models/               # Data models for API requests
+│   │   ├── __init__.py
+│   │   └── experiment.py
+│   ├── queries.py            # GraphQL query definitions
+│   ├── litmus_types.py       # Type definitions
+│   └── utils/                # Utility modules
+│       ├── __init__.py
+│       ├── error_handler.py  # Error handling decorators
+│       ├── manifest.py       # Manifest validation and I/O
+│       └── serializers.py    # JSON serialization utilities
+└── tests/
+    └── test_main.py          # Comprehensive unit tests (548 lines)
 ```
 
 ## Architecture
 
-The action is built using Python 3 and runs in a Docker container. Key components:
+The action is built using Python 3.10+ and runs in a Docker container with a modular, well-tested architecture:
+
+### Core Components
+
+- **main.py (791 lines)**: Orchestrates the complete workflow
+  - ID resolution (project, environment, infrastructure)
+  - Experiment creation and execution
+  - Status monitoring with exponential backoff
+  - Result formatting and logging
 
 - **LitmusClient**: HTTP client with retry logic for REST and GraphQL APIs
-- **LitmusConfig**: Configuration validation and normalization
-- **Type-safe Models**: Structured data models for API requests
-- **Error Handling**: Custom exceptions for different failure scenarios
+  - Context manager for resource cleanup
+  - Automatic token refresh
+  - Configurable timeouts and retries
+
+- **Error Handling Decorators**: DRY error handling via `@handle_graphql_errors` and `@handle_rest_errors`
+  - Wraps 6 functions for consistent error reporting
+  - Context-aware error messages
+
+- **Manifest Processing**:
+  - YAML validation with structure checks
+  - Metadata extraction and normalization
+  - Compact JSON serialization for API
+
+- **Configuration**: Injectable config for testing
+  - Environment variable loading
+  - Type-safe dataclasses
+  - Retry configuration
+
+### Code Quality
+
+- ✅ **Type Safety**: Full type hints with Python 3.10+ syntax
+- ✅ **Tested**: 548 lines of tests with 17 test classes
+- ✅ **Modular**: Functions refactored to single responsibility
+- ✅ **Constants**: All magic numbers extracted to named constants
+- ✅ **DRY**: Helper functions and decorators eliminate duplication
 
 ## Development
 
-### Local Testing
+### Setup
 
 1. Clone the repository:
    ```bash
    git clone https://github.com/Barravar/chaos-actions.git
-   cd chaos-actions/.github/src
+   cd chaos-actions
    ```
 
 2. Install dependencies:
@@ -185,7 +227,34 @@ The action is built using Python 3 and runs in a Docker container. Key component
    pip install -r requirements.txt
    ```
 
-3. Set environment variables:
+### Running Tests
+
+The project includes comprehensive unit tests (548 lines, 17 test classes):
+
+```bash
+# Run all tests
+pytest tests/test_main.py -v
+
+# Run with coverage report
+pytest tests/test_main.py --cov=src --cov-report=html
+
+# Run specific test class
+pytest tests/test_main.py::TestCreateChaosExperiment -v
+
+# Run with debug output
+pytest tests/test_main.py -v -s
+```
+
+Test coverage includes:
+- ID resolution functions (project, environment, infrastructure)
+- Experiment creation and execution
+- Helper functions (manifest parsing, JSON serialization)
+- Error handling and edge cases
+- Decorator functionality
+
+### Local Testing with Real Litmus Instance
+
+1. Set environment variables:
    ```bash
    export LITMUS_URL="https://chaos.example.com"
    export LITMUS_USERNAME="admin"
@@ -197,24 +266,29 @@ The action is built using Python 3 and runs in a Docker container. Key component
    export LOG_LEVEL="DEBUG"
    ```
 
-4. Run the script:
+2. Run the script:
    ```bash
-   python3 action.py
+   python3 -m src.main
    ```
 
 ### Building the Docker Image
 
 ```bash
-cd chaos-actions
-docker build -t chaos-actions:dev .github/src/
+docker build -t chaos-actions:dev .
+docker run --env-file .vars chaos-actions:dev
 ```
 
-### Running Tests
+### Code Quality Checks
 
 ```bash
-# Run with a test manifest
-export EXPERIMENT_MANIFEST="./experiment_manifest.yaml"
-python3 action.py
+# Type checking (if mypy installed)
+mypy src/
+
+# Linting
+flake8 src/ --max-line-length=120
+
+# Format check
+black --check src/
 ```
 
 ## Error Handling
@@ -274,9 +348,21 @@ Contributions are welcome! Please follow these guidelines:
 ### Code Style
 
 - Follow PEP 8 style guidelines
-- Use type hints for all function parameters and returns
-- Add docstrings for all public functions and classes
-- Keep functions focused and modular
+- Use type hints for all function parameters and returns (Python 3.10+ syntax with `|` for unions)
+- Add docstrings for all public functions and classes (Google style)
+- Keep functions focused and modular (single responsibility principle)
+- Prefix private/internal functions with `_`
+- Extract magic numbers to named constants
+- Use decorators for cross-cutting concerns (error handling)
+- Write tests for all new functions
+
+### Architecture Principles
+
+- **Modularity**: Each function has a single, clear purpose
+- **Testability**: Injectable dependencies, avoid global state
+- **Error Handling**: Use decorators for consistent error reporting
+- **Type Safety**: Comprehensive type hints for IDE support and validation
+- **DRY**: Extract helper functions to eliminate duplication
 
 ## License
 
