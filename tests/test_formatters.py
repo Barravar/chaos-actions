@@ -83,8 +83,20 @@ class TestLogFaultDetails:
             "chaosResult": {
                 "status": {
                     "probeStatuses": [
-                        {"name": "check-app-status", "status": "Passed"},
-                        {"name": "check-database", "status": "Passed"},
+                        {
+                            "name": "check-app-status",
+                            "status": {
+                                "verdict": "Passed",
+                                "description": "Application is healthy",
+                            },
+                        },
+                        {
+                            "name": "check-database",
+                            "status": {
+                                "verdict": "Passed",
+                                "description": "Database is operational",
+                            },
+                        },
                     ]
                 }
             },
@@ -134,7 +146,17 @@ class TestLogFaultDetails:
             "experimentVerdict": "Fail",
             "probeSuccessPercentage": "50",
             "chaosResult": {
-                "status": {"probeStatuses": [{"name": "check-app-status", "status": "Failed"}]}
+                "status": {
+                    "probeStatuses": [
+                        {
+                            "name": "check-app-status",
+                            "status": {
+                                "verdict": "Failed",
+                                "description": "Application is not healthy",
+                            },
+                        }
+                    ]
+                }
             },
         }
 
