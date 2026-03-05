@@ -73,4 +73,5 @@ dmypy.json
 
 # Project specific
 experiment_manifest.yaml
+experiment_new.yaml
 .github/src/  # Old directory structure - deprecated

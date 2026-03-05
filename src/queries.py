@@ -1,10 +1,11 @@
 """GraphQL queries for Litmus Chaos API."""
 
+
 class LitmusGraphQLQueries:
-  """Collection of GraphQL queries for Litmus ChaosCenter API."""
-  
-  # Query to list environments and return their IDs and names
-  LIST_ENVIRONMENTS = """
+    """Collection of GraphQL queries for Litmus ChaosCenter API."""
+
+    # Query to list environments and return their IDs and names
+    LIST_ENVIRONMENTS = """
     query listEnvironments($projectID: ID!, $request: ListEnvironmentRequest){
       listEnvironments(projectID: $projectID, request: $request){
         environments {
@@ -15,8 +16,8 @@ class LitmusGraphQLQueries:
     }
   """
 
-  # Query to list infrastructures and return their IDs, names, and statuses
-  LIST_CHAOS_INFRASTRUCTURES = """
+    # Query to list infrastructures and return their IDs, names, and statuses
+    LIST_CHAOS_INFRASTRUCTURES = """
     query listInfras($projectID: ID!, $request: ListInfraRequest){
       listInfras(projectID: $projectID, request: $request){
         infras {
@@ -29,8 +30,8 @@ class LitmusGraphQLQueries:
     }
   """
 
-  # Query to list experiments and return their IDs and names
-  LIST_EXPERIMENTS = """
+    # Query to list experiments and return their IDs and names
+    LIST_EXPERIMENTS = """
     query listExperiment($projectID: ID!, $request: ListExperimentRequest!){
       listExperiment(projectID: $projectID, request: $request){
         experiments {
@@ -41,8 +42,8 @@ class LitmusGraphQLQueries:
     }
   """
 
-  # Query to list experiment runs and return their details
-  LIST_EXPERIMENT_RUN = """
+    # Query to list experiment runs and return their details
+    LIST_EXPERIMENT_RUN = """
     query listExperimentRun($projectID: ID!, $request: ListExperimentRunRequest!){
       listExperimentRun(projectID: $projectID, request: $request){
         totalNoOfExperimentRuns
@@ -54,10 +55,16 @@ class LitmusGraphQLQueries:
     }
   """
 
-  # Query to get the status of an experiment run by its ID
-  GET_EXPERIMENT_RUN = """
-    query getExperimentRun($projectID: ID!, $experimentRunID: ID, $notifyID: ID){
-      getExperimentRun(projectID: $projectID, experimentRunID: $experimentRunID, notifyID: $notifyID){
+    # Query to get the status of an experiment run by its ID
+    GET_EXPERIMENT_RUN = """
+    query getExperimentRun(
+      $projectID: ID!, $experimentRunID: ID, $notifyID: ID
+    ){
+      getExperimentRun(
+        projectID: $projectID,
+        experimentRunID: $experimentRunID,
+        notifyID: $notifyID
+      ){
         experimentRunID
         experimentID
         experimentName
@@ -70,15 +77,15 @@ class LitmusGraphQLQueries:
     }
   """
 
-  # Mutation to save a chaos experiment
-  SAVE_EXPERIMENT = """
+    # Mutation to save a chaos experiment
+    SAVE_EXPERIMENT = """
     mutation saveChaosExperiment($projectID: ID!, $request: SaveChaosExperimentRequest!){
       saveChaosExperiment(projectID: $projectID, request: $request)
     }
   """
 
-  # Mutation to run a chaos experiment and return the notifyID for the run
-  RUN_EXPERIMENT = """
+    # Mutation to run a chaos experiment and return the notifyID for the run
+    RUN_EXPERIMENT = """
     mutation runChaosExperiment($projectID: ID!, $experimentID: String!){
       runChaosExperiment(projectID: $projectID, experimentID: $experimentID){
         notifyID
