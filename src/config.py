@@ -78,6 +78,7 @@ class LitmusConfig:
         required_attrs = {
             "litmus_url": "Litmus URL",
             "litmus_username": "Litmus username",
+            # nosec B105 - This is a description string, not a password
             "litmus_password": "Litmus password",
             "litmus_project": "Litmus project",
             "litmus_environment": "Litmus environment",
