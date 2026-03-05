@@ -117,3 +117,7 @@ exclude_lines = [
     "if TYPE_CHECKING:",
     "@abstractmethod",
 ]
+
+[tool.bandit]
+exclude_dirs = ["tests", "htmlcov", ".venv", "docs"]
+skips = ["B101", "B106"]  # Skip assert_used and hardcoded_password_funcarg in tests
