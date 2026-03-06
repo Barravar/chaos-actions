@@ -103,4 +103,4 @@ def run_chaos_experiment(
     variables = {"projectID": project_id, "experimentID": experiment_id}
 
     response = client._graphql_call(query=LitmusGraphQLQueries.RUN_EXPERIMENT, variables=variables)
-    return RunExperimentResponse(runExperiment=response.get("runExperiment", {}))
+    return RunExperimentResponse(runChaosExperiment=response.get("runChaosExperiment", {}))
