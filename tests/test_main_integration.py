@@ -83,6 +83,16 @@ class TestMainFunction:
             run_experiment=True,
         )
 
+        # Mock run details to be returned
+        mock_run_details = {
+            "experimentRunID": "run-123",
+            "experimentName": "new-exp",
+            "phase": "Completed",
+            "resiliencyScore": 95.0,
+            "totalFaults": 2,
+            "executionData": "",
+        }
+
         # Mock all service calls
         mocker.patch("src.main.LitmusClient")
         mocker.patch("src.main.get_project_id", return_value="proj-123")
@@ -96,7 +106,10 @@ class TestMainFunction:
             "src.main.run_chaos_experiment",
             return_value={"runChaosExperiment": {"notifyID": "notify-123"}},
         )
-        mock_wait = mocker.patch("src.main.wait_experiment_completion")
+        mock_wait = mocker.patch(
+            "src.main.wait_experiment_completion", return_value=mock_run_details
+        )
+        mock_write_outputs = mocker.patch("src.main.write_experiment_outputs")
 
         # Act
         main(config)
@@ -105,6 +118,8 @@ class TestMainFunction:
         assert mock_create.called
         assert mock_run.called
         assert mock_wait.called
+        assert mock_write_outputs.called
+        mock_write_outputs.assert_called_once_with(mock_run_details)
 
     def test_main_handles_missing_env_vars(self, mocker):
         """Test main function exits with error on missing config."""

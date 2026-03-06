@@ -54,7 +54,7 @@ Thank you for your interest in contributing to Litmus Chaos Actions! We welcome 
 
 ## Running Tests
 
-The project includes comprehensive test coverage (93% overall, 158 tests):
+The project includes comprehensive test coverage (93% overall, 180 tests):
 
 ```bash
 # Run all tests with coverage
@@ -74,10 +74,10 @@ pytest tests/ -v -s
 ```
 
 Test coverage includes:
-- Main workflow integration tests (main.py: 98% coverage)
-- Service layer (resources, experiments, monitoring: 95-100% coverage)
+- Main workflow integration tests (main.py: 95% coverage)
+- Service layer (resources, experiments, monitoring: 96-100% coverage)
 - Client API interactions (94% coverage)
-- Utility functions (formatters, error handlers: 100% coverage)
+- Utility functions (formatters, error handlers, GitHub outputs: 100% coverage)
 - Manifest processing and validation (75% coverage)
 - Error handling and edge cases
 - Decorator functionality

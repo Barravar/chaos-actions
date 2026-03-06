@@ -1,5 +1,12 @@
 # Litmus Chaos Actions
 
+[![CI](https://github.com/Barravar/chaos-actions/workflows/CI/badge.svg)](https://github.com/Barravar/chaos-actions/actions/workflows/ci.yaml)
+[![codecov](https://codecov.io/gh/Barravar/chaos-actions/branch/main/graph/badge.svg)](https://codecov.io/gh/Barravar/chaos-actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Docker](https://img.shields.io/badge/docker-ready-brightgreen.svg)](https://github.com/Barravar/chaos-actions/blob/main/Dockerfile)
+[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
+
 A GitHub Action for automating chaos engineering experiments using [Litmus Chaos](https://litmuschaos.io/) in Kubernetes environments. This action simplifies the integration of chaos testing into CI/CD pipelines by providing a streamlined interface to create and execute chaos experiments.
 
 ## Features
@@ -45,6 +52,50 @@ The action supports additional configuration through environment variables:
 | `GRAPHQL_TIMEOUT` | Timeout for GraphQL requests (seconds) | `60` |
 | `RUN_EXPERIMENT` | Whether to execute the experiment after creation | `true` |
 
+## Outputs
+
+This action produces the following outputs that can be used in subsequent workflow steps:
+
+| Output | Description | Type | Example |
+|--------|-------------|------|------|
+| `EXPERIMENT_RESULT` | Overall experiment status | String | `Completed`, `Error`, `Stopped` |
+| `RESILIENCY_SCORE` | Experiment resiliency score (0-100) | Number | `95.0` |
+| `FAULT_RESULTS` | Detailed fault results in JSON format | JSON Array | See [Fault Results Schema](#fault-results-schema) |
+
+### Fault Results Schema
+
+The `FAULT_RESULTS` output contains an array of objects with the following structure:
+
+```json
+[
+  {
+    "fault_name": "pod-delete",
+    "verdict": "Pass",
+    "fail_step": "N/A",
+    "probe_success_percentage": 100,
+    "probes": [
+      {
+        "name": "check-app-status",
+        "type": "httpProbe",
+        "status": "Passed",
+        "description": "Application is healthy and responding"
+      }
+    ]
+  }
+]
+```
+
+**Field Descriptions:**
+- `fault_name`: Name of the chaos fault that was executed
+- `verdict`: Pass/Fail/Awaited - the outcome of the fault injection
+- `fail_step`: Step where the fault failed (if applicable), otherwise "N/A"
+- `probe_success_percentage`: Percentage of successful probe checks
+- `probes`: Array of probe results (optional, only if probes are configured)
+  - `name`: Name of the probe
+  - `type`: Type of probe (httpProbe, cmdProbe, k8sProbe, etc.)
+  - `status`: Probe verdict (Passed/Failed)
+  - `description`: Detailed message about the probe result (e.g., error messages, timeout details)
+
 ## Usage
 
 ### Basic Example
@@ -64,6 +115,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Run Litmus Chaos Experiment
+        id: chaos
         uses: Barravar/chaos-actions@v1
         with:
           LITMUS_URL: ${{ secrets.LITMUS_URL }}
@@ -73,6 +125,12 @@ jobs:
           LITMUS_ENVIRONMENT: prod-cluster
           LITMUS_INFRA: k8s-prod
           EXPERIMENT_NAME: pod-delete-demo
+
+      - name: Check Experiment Results
+        run: |
+          echo "Experiment Status: ${{ steps.chaos.outputs.EXPERIMENT_RESULT }}"
+          echo "Resiliency Score: ${{ steps.chaos.outputs.RESILIENCY_SCORE }}"
+          echo "Fault Results: ${{ steps.chaos.outputs.FAULT_RESULTS }}"
 ```
 
 ### Creating a New Experiment from Manifest
@@ -104,6 +162,7 @@ jobs:
 
 ```yaml
 - name: Run Chaos Experiment from File
+  id: chaos-test
   uses: Barravar/chaos-actions@v1
   with:
     LITMUS_URL: ${{ secrets.LITMUS_URL }}
@@ -113,6 +172,43 @@ jobs:
     LITMUS_ENVIRONMENT: dev-cluster
     LITMUS_INFRA: k8s-dev
     EXPERIMENT_MANIFEST: ./chaos-experiments/pod-delete.yaml
+```
+
+### Using Outputs for Quality Gates
+
+You can use the outputs to enforce quality gates in your CI/CD pipeline:
+
+```yaml
+- name: Run Chaos Experiment
+  id: chaos
+  uses: Barravar/chaos-actions@v1
+  with:
+    LITMUS_URL: ${{ secrets.LITMUS_URL }}
+    LITMUS_USERNAME: ${{ secrets.LITMUS_USERNAME }}
+    LITMUS_PASSWORD: ${{ secrets.LITMUS_PASSWORD }}
+    LITMUS_PROJECT: production
+    LITMUS_ENVIRONMENT: prod-cluster
+    LITMUS_INFRA: k8s-prod
+    EXPERIMENT_NAME: comprehensive-chaos-suite
+
+- name: Enforce Resiliency Threshold
+  if: steps.chaos.outputs.RESILIENCY_SCORE < 80
+  run: |
+    echo "⚠️ Resiliency score ${{ steps.chaos.outputs.RESILIENCY_SCORE }} is below threshold (80)"
+    exit 1
+
+- name: Parse Fault Results
+  run: |
+    echo '${{ steps.chaos.outputs.FAULT_RESULTS }}' | jq '.[] | select(.verdict == "Fail")'
+
+- name: Upload Results as Artifact
+  uses: actions/upload-artifact@v4
+  with:
+    name: chaos-results
+    path: |
+      echo "Result: ${{ steps.chaos.outputs.EXPERIMENT_RESULT }}" > results.txt
+      echo "Score: ${{ steps.chaos.outputs.RESILIENCY_SCORE }}" >> results.txt
+      echo '${{ steps.chaos.outputs.FAULT_RESULTS }}' > faults.json
 ```
 
 ### Setting Custom Environment Variables
@@ -148,47 +244,19 @@ Create an experiment without immediately executing it:
 chaos-actions/
 ├── action.yaml                 # GitHub Action definition
 ├── Dockerfile                  # Container image definition
-├── README.md                   # This file
-├── requirements.txt            # Python dependencies
-├── pytest.ini                  # Pytest configuration
-├── pyproject.toml              # Python project metadata and tool configs
-├── .pre-commit-config.yaml     # Pre-commit hooks configuration
-├── .flake8                     # Flake8 linting configuration
 ├── src/
-│   ├── __init__.py
 │   ├── main.py                # Main entry point and orchestration
 │   ├── client.py              # Litmus API client (REST + GraphQL)
 │   ├── config.py              # Configuration and logger setup
-│   ├── exceptions.py          # Custom exception classes
-│   ├── litmus_types.py        # Type definitions (TypedDict, Enum)
-│   ├── queries.py             # GraphQL query definitions
-│   ├── models/                # Data models for API requests
-│   │   ├── __init__.py
-│   │   └── experiment.py      # Experiment request models
-│   ├── services/              # Business logic layer
-│   │   ├── __init__.py
-│   │   ├── resources.py       # ID resolution (project, env, infra)
-│   │   ├── experiments.py     # Experiment creation and execution
-│   │   └── monitoring.py      # Status polling and monitoring
-│   └── utils/                 # Utility modules
-│       ├── __init__.py
-│       ├── error_handler.py   # Error handling decorators
-│       ├── formatters.py      # Output formatting utilities
-│       ├── manifest.py        # Manifest validation and processing
-│       └── serializers.py     # JSON serialization utilities
-└── tests/
-    ├── conftest.py            # Pytest fixtures and configuration
-    ├── test_main.py           # Legacy main tests
-    ├── test_main_integration.py  # Integration tests for main.py
-    ├── test_client.py         # Client tests
-    ├── test_monitoring.py     # Monitoring service tests
-    ├── test_formatters.py     # Formatter tests
-    └── test_error_handler.py  # Error handler tests
+│   ├── models/                # Data models
+│   ├── services/              # Business logic (resources, experiments, monitoring)
+│   └── utils/                 # Utilities (error handling, formatters, validation)
+└── tests/                     # Comprehensive test suite (93% coverage)
 ```
 
 ## Architecture
 
-The action is built using Python 3.11+ and runs in a Docker container with a clean, service-oriented architecture:
+The action is built using Python 3.11+ and runs in a lightweight Docker container (Python 3.12 Alpine) with a clean, service-oriented architecture:
 
 ### Core Components
 
@@ -213,6 +281,7 @@ The action is built using Python 3.11+ and runs in a Docker container with a cle
 - **utils/**: Cross-cutting utilities
   - **error_handler.py**: Decorator-based error handling (`@handle_graphql_errors`, `@handle_rest_errors`)
   - **formatters.py**: Result formatting and logging
+  - **github_outputs.py**: GitHub Actions output generation and fault result extraction
   - **manifest.py**: YAML validation and JSON serialization
   - **serializers.py**: Data serialization utilities
 
@@ -222,67 +291,67 @@ The action is built using Python 3.11+ and runs in a Docker container with a cle
 
 ### Code Quality
 
-- ✅ **93% Test Coverage**: Comprehensive test suite with 158 passing tests
+- ✅ **93% Test Coverage**: Comprehensive test suite with 180 passing tests
+- ✅ **CI/CD Pipeline**: Automated testing on Python 3.11 and 3.12 via GitHub Actions
+- ✅ **Coverage Tracking**: Integration with Codecov for coverage monitoring
 - ✅ **Type Safety**: Full type hints with modern Python 3.11+ syntax (`dict[str, Any]`, `str | None`)
 - ✅ **Service-Oriented**: Clear separation of concerns with dedicated service modules
 - ✅ **Pre-commit Hooks**: Automated code quality checks (black, isort, flake8, mypy, bandit)
-- ✅ **Security**: Bandit security scanning, password masking, secret redaction
+- ✅ **Security**: Bandit security scanning, password masking, secret redaction in logs
 - ✅ **DRY Principle**: Decorators and helper functions eliminate code duplication
 - ✅ **Constants**: All magic numbers extracted to named constants
 - ✅ **Documentation**: Comprehensive docstrings with Args/Returns/Raises
+- ✅ **Docker Best Practices**: Multi-stage builds, non-root user, minimal Alpine base image
 
-## Troubleshooting
+## Security
 
-### Common Issues
+### Security Features
 
-**Problem**: `Environment X not found`
-- Verify the environment name matches exactly (case-sensitive)
-- Ensure the environment exists in the specified project
-- Check user permissions for the project
+- **Credential Protection**: Passwords and tokens are redacted from logs
+- **Bandit Security Scanning**: Automated security vulnerability detection in CI
+- **Non-root Container**: Docker container runs as non-privileged user (UID 1000)
+- **Minimal Attack Surface**: Alpine Linux base with only required dependencies
+- **Secret Management**: Supports GitHub Actions secrets for credential storage
 
-**Problem**: `Chaos Infrastructure is not active`
-- Verify the chaos infrastructure agent is running in your cluster
-- Check agent logs: `kubectl logs -n litmus -l app=chaos-exporter`
-- Confirm infrastructure is connected in Litmus UI
+### Reporting Vulnerabilities
 
-**Problem**: `Invalid YAML manifest`
-- Validate YAML syntax using a linter
-- Ensure the manifest follows Argo Workflow specifications
-- Check for required metadata fields (name, namespace, annotations.description)
+If you discover a security vulnerability, please email **barravar@barravar.com.br**. Please do not use public issue tracker for security issues.
 
-**Problem**: HTTP timeout errors
-- Increase `REQUEST_TIMEOUT` or `GRAPHQL_TIMEOUT` environment variables
-- Check network connectivity to Litmus instance
-- Verify Litmus instance is responsive
+## Versioning
+
+This project follows [Semantic Versioning](https://semver.org/). For available versions, see the [releases page](https://github.com/Barravar/chaos-actions/releases).
+
+**Usage Recommendations:**
+- Production: Use specific version tags (e.g., `@v1.0.0`)
+- Development: Use major version tags (e.g., `@v1`) for latest compatible version
+- Testing: Use `@main` for cutting edge (not recommended for production)
 
 ## Contributing
 
 Contributions are welcome! For development setup, testing guidelines, and code quality standards, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## AI Development Disclaimer
+## License
 
-This project was developed with the assistance of AI tools (GitHub Copilot and Claude) to enhance code quality, test coverage, and documentation. While AI assisted in:
-- Code review and recommendations
-- Test suite expansion (86% → 93% coverage)
-- Implementation of pre-commit hooks and linting
-- Documentation improvements
-
-All code has been reviewed, tested, and validated by human developers to ensure correctness, security, and adherence to best practices.
+This project is licensed under the MIT License. See the repository for details.
 
 ## Acknowledgments
 
 - Built with [Litmus Chaos](https://litmuschaos.io/)
 - Inspired by the chaos engineering community
-- Thanks to all contributors
-- AI-assisted development with GitHub Copilot and Claude
+- Thanks to all [contributors](https://github.com/Barravar/chaos-actions/graphs/contributors)
+- Developed with AI assistance (GitHub Copilot and Claude) for code quality, testing, and documentation
 
-## Support
+## Support and Resources
 
 - 📚 [Litmus Documentation](https://docs.litmuschaos.io/)
 - 🐛 [Report Issues](https://github.com/Barravar/chaos-actions/issues)
 - 💬 [Discussions](https://github.com/Barravar/chaos-actions/discussions)
+- 🔧 [Contributing Guide](CONTRIBUTING.md)
+- 📦 [Release Notes](https://github.com/Barravar/chaos-actions/releases)
 
 ---
 
+**Copyright © 2026 Barravar Inc.**
 **Maintainer**: Barravar Inc. <barravar@barravar.com.br>
 **Repository**: [github.com/Barravar/chaos-actions](https://github.com/Barravar/chaos-actions)
+**License**: MIT

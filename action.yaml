@@ -12,11 +12,11 @@ inputs:
   LITMUS_PASSWORD:
     description: "The password for authenticating with Litmus."
     required: true
-  LITMUS_ENVIRONMENT:
-    description: "The Litmus Environment name."
-    required: true
   LITMUS_PROJECT:
     description: "The Litmus Project name."
+    required: true
+  LITMUS_ENVIRONMENT:
+    description: "The Litmus Environment name."
     required: true
   LITMUS_INFRA:
     description: "The Litmus Infra Chaos name."
@@ -30,6 +30,14 @@ inputs:
     description: "The name of an existing chaos experiment to run."
     required: false
     default: ""
+
+outputs:
+  EXPERIMENT_RESULT:
+    description: "The overall result/status of the experiment (e.g., Completed, Error, Stopped)"
+  RESILIENCY_SCORE:
+    description: "The overall resiliency score of the experiment (0-100)"
+  FAULT_RESULTS:
+    description: "Detailed results of each fault in JSON format"
 
 runs:
   using: docker
