@@ -34,6 +34,7 @@ from .services.resources import (
     get_infrastructure_id,
     get_project_id,
 )
+from .utils import write_experiment_outputs
 
 # Initialize logger
 logger = LoggerConfig.setup_logger()
@@ -133,12 +134,15 @@ def main(config: LitmusConfig | None = None, retry_config: RetryConfig | None = 
             if not notify_id:
                 raise ValueError("No notifyID returned from run experiment")
 
-            wait_experiment_completion(
+            run_details = wait_experiment_completion(
                 client=client,
                 project_id=project_id,
                 experiment_id=experiment_id,
                 notify_id=notify_id,
             )
+
+            # Write experiment outputs for GitHub Actions
+            write_experiment_outputs(run_details)
 
         else:
             logger.info("Skipping experiment run as per configuration")
