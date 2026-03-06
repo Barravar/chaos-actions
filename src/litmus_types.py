@@ -27,7 +27,7 @@ class ExperimentData(TypedDict):
 class RunExperimentResponse(TypedDict):
     """Type definition for run experiment response."""
 
-    runExperiment: dict[str, str]
+    runChaosExperiment: dict[str, str]
 
 
 class ExperimentRunDetails(TypedDict, total=False):

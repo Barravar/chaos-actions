@@ -450,11 +450,11 @@ class TestRunChaosExperiment:
 
     def test_run_chaos_experiment_success(self, mock_client):
         """Test successful experiment run."""
-        mock_client._graphql_call.return_value = {"runExperiment": {"notifyID": "notify-123"}}
+        mock_client._graphql_call.return_value = {"runChaosExperiment": {"notifyID": "notify-123"}}
 
         result = run_chaos_experiment(mock_client, "proj-123", "exp-123", "test-experiment")
 
-        assert result == {"runExperiment": {"notifyID": "notify-123"}}
+        assert result == {"runChaosExperiment": {"notifyID": "notify-123"}}
         mock_client._graphql_call.assert_called_once()
 
     def test_run_chaos_experiment_api_error(self, mock_client):

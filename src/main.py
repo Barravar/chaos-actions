@@ -129,7 +129,7 @@ def main(config: LitmusConfig | None = None, retry_config: RetryConfig | None = 
                 experiment_id=experiment_id,
                 experiment_name=experiment_name,
             )
-            notify_id = run_experiment.get("runExperiment", {}).get("notifyID")
+            notify_id = run_experiment.get("runChaosExperiment", {}).get("notifyID")
             if not notify_id:
                 raise ValueError("No notifyID returned from run experiment")
 

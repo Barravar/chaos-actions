@@ -94,7 +94,7 @@ class TestMainFunction:
         )
         mock_run = mocker.patch(
             "src.main.run_chaos_experiment",
-            return_value={"runExperiment": {"notifyID": "notify-123"}},
+            return_value={"runChaosExperiment": {"notifyID": "notify-123"}},
         )
         mock_wait = mocker.patch("src.main.wait_experiment_completion")
 
